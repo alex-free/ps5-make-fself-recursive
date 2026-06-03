@@ -1,0 +1,55 @@
+#!/bin/bash
+
+version=1.0
+echo -e "PS5 Make FSELF Recursive v$version\nBy Alex-Free (C)2026\nhttps://github.com/alex-free/ps5-recursive-make-fself\nPowered by https://github.com/ps5-payload-dev/sdk/blob/master/samples/install_app/make_fself.py.\n"
+
+# Modified by build script for zip release to true.
+portable=false
+
+if [[ "$portable" == "true" ]]; then
+    # If you symlink the program script to an absolute path in a root privilaged dir, some things fail unless we only use the actual real path and not the symlink's. See https://github.com/alex-free/playstation-disc-burner/pull/2.
+    real_portable_folder="$(dirname "$(readlink -f "$0")")"
+    # Add all the self-contained binaries we need to the $PATH used within this script.
+    PATH=""$real_portable_folder"/bin${PATH:+:$PATH}"
+    echo $PATH
+fi
+
+# When this script exits, automatically delete the temp directory.
+cleanup()
+{
+    if [[ -e "$tmp" ]]; then
+        echo "Clearing temp files..."
+        rm -r "$tmp"
+    fi
+}
+trap cleanup EXIT
+
+# Put temp directory in /var/tmp to guarantee enough space.
+tmp=$(mktemp -d --tmpdir -p /var/tmp dump-runable.XXX)
+
+if [[ ! -f "$1"/eboot.bin ]]; then
+    echo "Error: first argument should be a PS5 game dump folder"
+    exit 1
+fi
+
+cd "$1"
+
+cp eboot.bin $tmp
+make_fself.py $tmp/eboot.bin eboot.bin
+rm $tmp/eboot.bin
+echo "Fake signed eboot.bin."
+
+prx_count=0
+
+find . -type f -name "*.prx" -print0 | while IFS= read -r -d '' f; do
+    echo -e "\nFound "$f"\n"
+    ((prx_count++))
+    cp "$f" $tmp
+    prx_filename=$(basename "$f")
+    make_fself.py $tmp/"$prx_filename" "$f"
+    rm $tmp/"$prx_filename"
+done
+
+if [["$prx_count" -gt 0 ]]; then
+    echo "Fake signed $prx_count prx (dynamic library) file(s)."
+fi

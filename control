@@ -1,0 +1,6 @@
+Package: ps5mfr
+Version: 1.0
+Maintainer: Alex Free
+Architecture: all
+Homepage: https://github.com/alex-free/ps5-make-fself-recursive
+Description: Run make_fself.py recursively on a decrypted PS5 game dump folder.

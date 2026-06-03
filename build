@@ -1,0 +1,93 @@
+#!/bin/bash
+
+# EzRe build script
+version="1.0"
+program="ps5mfr"
+
+release_name="$program-v$version"
+release_files="$program *.md"
+
+
+if [ "$1" == "deps" ]; then
+    echo "Info: root privileges are required to install build dependencies."
+
+	if [ "$(uname)" = "Darwin" ]; then
+		echo "Mac OS detected."
+
+		if command -v port > /dev/null; then
+			echo "Using MacPorts"
+			sudo port -N install rpm dpkg
+		else
+			echo "MacPorts is not installed"
+		fi
+	
+    elif [ "$(uname)" = "Linux" ]; then
+		echo "Linux detected."
+	
+    	if command -v dnf > /dev/null; then
+			echo "Using dnf"
+			sudo dnf -y install dpkg-dev rpmdevtools
+		elif command -v apt > /dev/null; then
+			echo "Using apt"
+			sudo apt install --yes dpkg-dev rpm
+		else
+			echo "MacPorts, DNF, and APT package managers were not found. The make deps rule requires one of these package managers to automatically install all required build dependencies."
+		fi
+    fi
+fi
+
+cd "$(dirname "$0")"
+
+rm -rf "$release_name" *.zip *.deb *.rpm
+
+if [ "$1" == "clean" ]; then
+    exit 0
+fi
+
+if sed --version >/dev/null 2>&1; then
+    echo "Info: using GNU sed"
+    bsd_sed=false
+else
+    echo "Info: using BSD sed"
+    bsd_sed=true
+fi
+
+# Update version in $program
+if [ "$bsd_sed" == "true" ]; then
+    sed -i '' -E "s|^version=.*|version=$version|" $program
+else
+    sed -i'' -E "s|^version=.*|version=$version|" $program
+fi
+
+mkdir -p "$release_name"/usr/bin
+mkdir -p "$release_name"/DEBIAN
+cp control "$release_name"/DEBIAN
+cp "$program" "$release_name"/usr/bin
+cp make_fself.py "$release_name"/usr/bin
+dpkg-deb --build "$release_name"
+
+rm -rf "$release_name"
+
+mkdir "$release_name"
+cp -r ${release_files} "$release_name"
+mkdir "$release_name"/bin
+cp make_fself.py "$release_name"/bin
+
+# Change to portable=true in $program for zip release.
+if [ "$bsd_sed" == "true" ]; then
+    sed -i '' -E "s|^portable=.*|portable=true|" "$release_name"/$program
+else
+    sed -i'' -E "s|^portable=.*|portable=true|" "$release_name"/$program
+fi
+
+chmod -R 777 "$release_name"
+zip -r "$release_name".zip "$release_name"
+
+rm -rf rpm-tmp
+mkdir -p rpm-tmp/RPMS rpm-tmp/SPECS rpm-tmp/SOURCES rpm-tmp/BUILD
+cp ezre.spec rpm-tmp/SPECS/ezre.spec
+cp $program rpm-tmp/SOURCES
+cp make_fself.py rpm-tmp/SOURCES
+rpmbuild -bb --target noarch rpm-tmp/SPECS/ezre.spec --define "_topdir $PWD/rpm-tmp" --define "_tmppath $PWD/rpm-tmp"
+mv rpm-tmp/RPMS/noarch/*.rpm .
+rm -rf rpm-tmp
