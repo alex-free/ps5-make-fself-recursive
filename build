@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # EzRe build script
-version="1.0"
+version="1.0.1"
 program="ps5mfr"
 
 release_name="$program-v$version"
@@ -52,11 +52,25 @@ else
     bsd_sed=true
 fi
 
-# Update version in $program
+# Update version in $program.
 if [ "$bsd_sed" == "true" ]; then
     sed -i '' -E "s|^version=.*|version=$version|" $program
 else
     sed -i'' -E "s|^version=.*|version=$version|" $program
+fi
+
+# Update version in control.
+if [ "$bsd_sed" == "true" ]; then
+    sed -i '' -E "s|^Version.*|Version: $version|" control
+else
+    sed -i'' -E "s|^Version.*|Version: $version|" control
+fi
+
+# Update version in ezre.spec.
+if [ "$bsd_sed" == "true" ]; then
+    sed -i '' -E "s|^Version.*|Version: v$version|" ezre.spec
+else
+    sed -i'' -E "s|^Version.*|Version: v$version|" ezre.spec
 fi
 
 mkdir -p "$release_name"/usr/bin

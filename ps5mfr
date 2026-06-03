@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=1.0
+version=1.0.1
 echo -e "PS5 Make FSELF Recursive v$version\nBy Alex-Free (C)2026\nhttps://github.com/alex-free/ps5-recursive-make-fself\nPowered by https://github.com/ps5-payload-dev/sdk/blob/master/samples/install_app/make_fself.py.\n"
 
 # Modified by build script for zip release to true.
@@ -34,22 +34,71 @@ fi
 
 cd "$1"
 
-cp eboot.bin $tmp
-make_fself.py $tmp/eboot.bin eboot.bin
-rm $tmp/eboot.bin
-echo "Fake signed eboot.bin."
+# Signed Executable and Linkable Format (SELF) - https://www.psdevwiki.com/ps3/SELF_-_SPRX. Includes eboot.bin (main executable) and any others.
+self_count=0
 
+while IFS= read -r -d '' f; do
+    echo -e "\nFound "$f"\n"
+    cp "$f" $tmp
+    self_filename=$(basename "$f")
+    
+    # Redirect errors. Game (could??) have multiple .bin files, I mean eboot.bin for sure but maybe more. However, a .bin might not even be an actual SELF it might be something just containing data for the game. So any errors just silence here, make_fself.py ensures this doesn't matter if it isn't a SELF because it stops execution.
+    
+    if make_fself.py $tmp/"$self_filename" "$f" > /dev/null 2>&1; then
+        ((self_count++))
+    fi
+
+    rm $tmp/"$self_filename"
+done < <(find . -type f -name "*.bin" -print0)
+
+# ELF (I don't know if these are in PS5 games but lets just make sure).
+elf_count=0
+
+while IFS= read -r -d '' f; do
+    echo -e "\nFound "$f"\n"
+    ((elf_count++))
+    cp "$f" $tmp
+    elf_filename=$(basename "$f")
+    make_fself.py $tmp/"$elf_filename" "$f"
+    rm $tmp/"$elf_filename"
+done < <(find . -type f -name "*.elf" -print0)
+
+# Playstation Relocatable Executable (Dynamic libraries for game) - https://www.psdevwiki.com/ps3/PRX.
 prx_count=0
 
-find . -type f -name "*.prx" -print0 | while IFS= read -r -d '' f; do
+while IFS= read -r -d '' f; do
     echo -e "\nFound "$f"\n"
     ((prx_count++))
     cp "$f" $tmp
     prx_filename=$(basename "$f")
     make_fself.py $tmp/"$prx_filename" "$f"
     rm $tmp/"$prx_filename"
-done
+done < <(find . -type f -name "*.prx" -print0)
 
-if [["$prx_count" -gt 0 ]]; then
-    echo "Fake signed $prx_count prx (dynamic library) file(s)."
+# System PlayStation Relocatable Extension - (System Dynamic libraries) - https://www.psdevwiki.com/ps4/Libraries.
+sprx_count=0
+
+while IFS= read -r -d '' f; do
+    echo -e "\nFound "$f"\n"
+    ((sprx_count++))
+    cp "$f" $tmp
+    sprx_filename=$(basename "$f")
+    make_fself.py $tmp/"$sprx_filename" "$f"
+    rm $tmp/"$sprx_filename"
+done < <(find . -type f -name "*.sprx" -print0)
+
+if [[ "$self_count" -gt 0 ]]; then
+    echo "Fake signed $self_count SELF (.bin) file(s)."
+fi
+
+if [[ "$elf_count" -gt 0 ]]; then
+    echo "Fake signed $elf_count ELF (.elf) file(s)."
+fi
+
+if [[ "$prx_count" -gt 0 ]]; then
+    echo "Fake signed $prx_count PRX (.prx) file(s)."
+fi
+
+if [[ "$sprx_count" -gt 0 ]]; then
+    echo "Fake signed $sprx_count SPRX (.sprx) file(s)."
 fi

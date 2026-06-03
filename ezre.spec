@@ -1,7 +1,7 @@
 %global source_date_epoch_from_changelog 0
 
 Name: ps5mfr
-Version: v1.0
+Version: v1.0.1
 Summary: Run make_fself.py recursively on a decrypted PS5 game dump folder.
 Release: 1
 License: BSD-3-Clause
